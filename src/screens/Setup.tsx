@@ -10,7 +10,7 @@ export function Setup({ game, dispatch }: { game: Game; dispatch: Dispatch<Actio
     <div className="screen">
       <header className="bar">
         <button className="chip" onClick={() => dispatch({ type: 'back' })}>
-          ‹ Factions
+          ‹ Map
         </button>
         <small>{game.players.length} players</small>
       </header>

@@ -1,4 +1,5 @@
 import { useEffect, useReducer } from 'react'
+import { MAP_BY_ID, randomClearingSuits, type ClearingSuit, type DeckId, type MapId } from './data/maps'
 import { BOXES, FACTION_BY_ID, WIN_VP, isLegalSet, type Box, type FactionId, type Suit } from './data/factions'
 
 export interface Player {
@@ -16,7 +17,7 @@ export interface LogEntry {
 }
 
 export interface Game {
-  screen: 'pick' | 'setup' | 'score'
+  screen: 'pick' | 'woodland' | 'setup' | 'score'
   boxes: Record<Box, boolean>
   playerCount: number
   selected: FactionId[]
@@ -33,6 +34,10 @@ export interface Game {
   undo: { players: Player[]; log: LogEntry[]; round: number; turn: number }[]
   rotate: boolean
   winnerSeen: boolean
+  map: MapId
+  /** Suit of each clearing, or null to use the suits printed on the map. */
+  clearings: ClearingSuit[] | null
+  deck: DeckId
 }
 
 export type Action =
@@ -42,6 +47,12 @@ export type Action =
   | { type: 'toggleExclude'; id: FactionId }
   | { type: 'setSelected'; ids: FactionId[] }
   | { type: 'toSetup' }
+  | { type: 'toTurnOrder' }
+  | { type: 'setMap'; map: MapId }
+  | { type: 'rollWoodland'; map: MapId }
+  | { type: 'dealClearings' }
+  | { type: 'usePrintedSuits' }
+  | { type: 'setDeck'; deck: DeckId }
   | { type: 'setName'; index: number; name: string }
   | { type: 'rollFirst' }
   | { type: 'start' }
@@ -72,6 +83,9 @@ function initial(): Game {
     undo: [],
     rotate: false,
     winnerSeen: false,
+    map: 'autumn',
+    clearings: null,
+    deck: 'standard',
   }
 }
 
@@ -79,7 +93,10 @@ function load(): Game {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      const g: Game = { ...initial(), ...JSON.parse(raw) }
+      let g: Game = { ...initial(), ...JSON.parse(raw) }
+      // Saves from older versions can hold a map or deal this version doesn't know.
+      const m = MAP_BY_ID[g.map]
+      if (!m || (g.clearings && g.clearings.length !== m.clearings.length)) g = { ...g, map: 'autumn', clearings: null }
       return g.screen === 'score' && !g.startedAt ? { ...g, startedAt: Date.now() } : g
     }
   } catch {
@@ -101,7 +118,13 @@ function reducer(g: Game, a: Action): Game {
     case 'toggleBox': {
       const boxes = { ...g.boxes, [a.box]: !g.boxes[a.box] }
       const selected = g.selected.filter((id) => boxes[FACTION_BY_ID[id].box])
-      return { ...g, boxes, selected: isLegalSet(selected) ? selected : selected.filter((id) => id !== 'vagabond2') }
+      const mapGone = !boxes[MAP_BY_ID[g.map].box]
+      return {
+        ...g,
+        boxes,
+        selected: isLegalSet(selected) ? selected : selected.filter((id) => id !== 'vagabond2'),
+        ...(mapGone ? { map: 'autumn' as const, clearings: null } : {}),
+      }
     }
     case 'setCount':
       return { ...g, playerCount: a.count, selected: g.selected.slice(0, a.count) }
@@ -124,7 +147,7 @@ function reducer(g: Game, a: Action): Game {
     case 'toSetup': {
       const old = new Map(g.players.map((p) => [p.faction, p.name]))
       const players = g.selected.map((f) => ({ faction: f, name: old.get(f) ?? '', vp: 0, dominance: null, coalitionWith: null }))
-      return { ...g, screen: 'setup', players }
+      return { ...g, screen: 'woodland', players }
     }
     case 'setName':
       return { ...g, players: g.players.map((p, i) => (i === a.index ? { ...p, name: a.name } : p)) }
@@ -145,8 +168,23 @@ function reducer(g: Game, a: Action): Game {
         winnerSeen: false,
         players: g.players.map((p) => ({ ...p, vp: 0, dominance: null, coalitionWith: null })),
       }
+    case 'toTurnOrder':
+      return { ...g, screen: 'setup' }
+    case 'setMap': {
+      // Maps without printed suits always need a deal.
+      const m = MAP_BY_ID[a.map]
+      return { ...g, map: a.map, clearings: m.printed ? null : randomClearingSuits(m.clearings.length) }
+    }
+    case 'rollWoodland':
+      return { ...g, map: a.map, clearings: randomClearingSuits(MAP_BY_ID[a.map].clearings.length) }
+    case 'dealClearings':
+      return { ...g, clearings: randomClearingSuits(MAP_BY_ID[g.map].clearings.length) }
+    case 'usePrintedSuits':
+      return { ...g, clearings: null }
+    case 'setDeck':
+      return { ...g, deck: a.deck }
     case 'back':
-      return { ...g, screen: g.screen === 'score' ? 'setup' : 'pick' }
+      return { ...g, screen: g.screen === 'score' ? 'setup' : g.screen === 'setup' ? 'woodland' : 'pick' }
     case 'score': {
       const p = g.players.find((x) => x.faction === a.faction)
       if (!p) return g
@@ -189,7 +227,7 @@ function reducer(g: Game, a: Action): Game {
     case 'dismissWinner':
       return { ...g, winnerSeen: true }
     case 'end':
-      return { ...initial(), boxes: g.boxes, playerCount: g.playerCount, selected: g.selected }
+      return { ...initial(), boxes: g.boxes, playerCount: g.playerCount, selected: g.selected, map: g.map, clearings: g.clearings, deck: g.deck }
   }
 }
 
