@@ -20,6 +20,8 @@ export interface Game {
   boxes: Record<Box, boolean>
   playerCount: number
   selected: FactionId[]
+  /** Factions the group doesn't want in play; kept out of picks and random draws. */
+  excluded: FactionId[]
   /** In turn order, clockwise from the first player. */
   players: Player[]
   round: number
@@ -37,6 +39,7 @@ export type Action =
   | { type: 'toggleBox'; box: Box }
   | { type: 'setCount'; count: number }
   | { type: 'toggleFaction'; id: FactionId }
+  | { type: 'toggleExclude'; id: FactionId }
   | { type: 'setSelected'; ids: FactionId[] }
   | { type: 'toSetup' }
   | { type: 'setName'; index: number; name: string }
@@ -60,6 +63,7 @@ function initial(): Game {
     boxes: Object.fromEntries(BOXES.map((b) => [b.id, true])) as Record<Box, boolean>,
     playerCount: 4,
     selected: [],
+    excluded: [],
     players: [],
     round: 1,
     turn: 0,
@@ -109,6 +113,11 @@ function reducer(g: Game, a: Action): Game {
       }
       if (g.selected.length >= g.playerCount) return g
       return { ...g, selected: [...g.selected, a.id] }
+    }
+    case 'toggleExclude': {
+      if (g.excluded.includes(a.id)) return { ...g, excluded: g.excluded.filter((x) => x !== a.id) }
+      const drop = a.id === 'vagabond' ? ['vagabond', 'vagabond2'] : [a.id]
+      return { ...g, excluded: [...g.excluded, a.id], selected: g.selected.filter((s) => !drop.includes(s)) }
     }
     case 'setSelected':
       return { ...g, selected: a.ids }

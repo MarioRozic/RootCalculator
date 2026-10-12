@@ -316,6 +316,8 @@ input:focus-visible {
   border: 2px solid transparent;
   outline: 1px solid var(--line);
   text-align: left;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .frow.sel {
@@ -326,6 +328,14 @@ input:focus-visible {
 
 .frow.dim {
   opacity: 0.45;
+}
+
+.fhint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin: 4px 0 10px;
 }
 
 .frow .n,
