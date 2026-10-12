@@ -130,12 +130,12 @@ export function Score({ game, dispatch }: { game: Game; dispatch: Dispatch<Actio
 
       {confirmEnd && (
         <Sheet title="End this game?" onClose={() => setConfirmEnd(false)}>
-          <p className="why">Scores are cleared. Your factions stay picked for the next game.</p>
+          <p className="why">You'll see the game's stats, and can still come back to the table from there.</p>
           <div className="actions inline">
             <button className="btn ghost" onClick={() => setConfirmEnd(false)}>
               Keep playing
             </button>
-            <button className="btn" onClick={() => dispatch({ type: 'end' })}>
+            <button className="btn" onClick={() => dispatch({ type: 'finish' })}>
               End game
             </button>
           </div>
@@ -454,8 +454,13 @@ function Winner({ winner, players, round, startedAt, dispatch }: { winner: Playe
           <button className="btn ghost" onClick={() => dispatch({ type: 'undo' })}>
             Oops, undo
           </button>
-          <button className="btn" onClick={() => dispatch({ type: 'dismissWinner' })}>
+          <button className="btn ghost" onClick={() => dispatch({ type: 'dismissWinner' })}>
             See the table
+          </button>
+        </div>
+        <div className="actions inline">
+          <button className="btn" onClick={() => dispatch({ type: 'finish' })}>
+            Game stats
           </button>
         </div>
       </div>

@@ -1125,7 +1125,8 @@ input:focus-visible {
   margin: 12px 12px 4px;
 }
 
-.pills button {
+.pills button,
+.pills div {
   flex: 1;
   min-width: 0;
   text-align: left;
@@ -1161,4 +1162,79 @@ input:focus-visible {
   font-weight: 900;
   font-size: 1.5rem;
   line-height: 1;
+}
+
+/* ---------- stats ---------- */
+.step .num.wide {
+  width: auto;
+  margin-left: auto;
+  font-size: 1.1rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.step .num.wide small {
+  display: block;
+  font-family: var(--body);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.tbar {
+  display: block;
+  height: 6px;
+  margin: 4px 0 2px;
+  border-radius: 3px;
+  background: var(--paper2);
+  overflow: hidden;
+}
+
+.tbar i {
+  display: block;
+  height: 100%;
+}
+
+.vpchart {
+  display: block;
+  width: calc(100% - 28px);
+  margin: 0 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.vpchart .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.vpchart text {
+  fill: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 6px 16px 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend i {
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.win .actions {
+  align-self: stretch;
 }

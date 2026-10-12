@@ -14,10 +14,18 @@ export interface LogEntry {
   faction: FactionId
   text: string
   round: number
+  /** Index into turns of the turn this happened in. */
+  turn?: number
+}
+
+export interface TurnRecord {
+  faction: FactionId
+  round: number
+  ms: number
 }
 
 export interface Game {
-  screen: 'pick' | 'woodland' | 'setup' | 'score'
+  screen: 'pick' | 'woodland' | 'setup' | 'score' | 'stats'
   boxes: Record<Box, boolean>
   playerCount: number
   selected: FactionId[]
@@ -30,8 +38,14 @@ export interface Game {
   turn: number
   /** Epoch ms when the game started. */
   startedAt: number
+  /** Epoch ms when the current turn started. */
+  turnStartedAt: number
+  /** Finished turns, oldest first. */
+  turns: TurnRecord[]
+  /** Epoch ms when the game was ended, or 0 while it's being played. */
+  endedAt: number
   log: LogEntry[]
-  undo: { players: Player[]; log: LogEntry[]; round: number; turn: number }[]
+  undo: { players: Player[]; log: LogEntry[]; round: number; turn: number; turns: TurnRecord[]; turnStartedAt: number }[]
   rotate: boolean
   winnerSeen: boolean
   map: MapId
@@ -64,6 +78,8 @@ export type Action =
   | { type: 'endTurn' }
   | { type: 'toggleRotate' }
   | { type: 'dismissWinner' }
+  | { type: 'finish' }
+  | { type: 'resume' }
   | { type: 'end' }
 
 const STORAGE_KEY = 'rootcalc.game.v1'
@@ -79,6 +95,9 @@ function initial(): Game {
     round: 1,
     turn: 0,
     startedAt: 0,
+    turnStartedAt: 0,
+    turns: [],
+    endedAt: 0,
     log: [],
     undo: [],
     rotate: false,
@@ -97,7 +116,10 @@ function load(): Game {
       // Saves from older versions can hold a map or deal this version doesn't know.
       const m = MAP_BY_ID[g.map]
       if (!m || (g.clearings && g.clearings.length !== m.clearings.length)) g = { ...g, map: 'autumn', clearings: null }
-      return g.screen === 'score' && !g.startedAt ? { ...g, startedAt: Date.now() } : g
+      if (g.screen === 'score' && !g.startedAt) g = { ...g, startedAt: Date.now() }
+      if (g.screen === 'score' && !g.turnStartedAt) g = { ...g, turnStartedAt: Date.now() }
+      if (g.screen === 'stats' && !g.endedAt) g = { ...g, endedAt: Date.now() }
+      return g
     }
   } catch {
     // ignore unreadable storage
@@ -106,7 +128,7 @@ function load(): Game {
 }
 
 function withUndo(g: Game): Game['undo'] {
-  return [...g.undo, { players: g.players, log: g.log, round: g.round, turn: g.turn }].slice(-100)
+  return [...g.undo, { players: g.players, log: g.log, round: g.round, turn: g.turn, turns: g.turns, turnStartedAt: g.turnStartedAt }].slice(-100)
 }
 
 function updatePlayer(g: Game, id: FactionId, fn: (p: Player) => Player) {
@@ -163,6 +185,9 @@ function reducer(g: Game, a: Action): Game {
         round: 1,
         turn: 0,
         startedAt: Date.now(),
+        turnStartedAt: Date.now(),
+        turns: [],
+        endedAt: 0,
         log: [],
         undo: [],
         winnerSeen: false,
@@ -195,7 +220,7 @@ function reducer(g: Game, a: Action): Game {
         ...g,
         undo: withUndo(g),
         players: updatePlayer(g, a.faction, (x) => ({ ...x, vp })),
-        log: [...g.log, { faction: a.faction, text: (change > 0 ? '+' : '−') + Math.abs(change), round: g.round }],
+        log: [...g.log, { faction: a.faction, text: (change > 0 ? '+' : '−') + Math.abs(change), round: g.round, turn: g.turns.length }],
       }
     }
     case 'dominance':
@@ -220,12 +245,27 @@ function reducer(g: Game, a: Action): Game {
     case 'endTurn': {
       // Passing the turn back to the first player starts a new round.
       const turn = (g.turn + 1) % g.players.length
-      return { ...g, undo: withUndo(g), turn, round: turn === 0 ? g.round + 1 : g.round }
+      const now = Date.now()
+      return {
+        ...g,
+        undo: withUndo(g),
+        turn,
+        round: turn === 0 ? g.round + 1 : g.round,
+        turns: [...g.turns, { faction: g.players[g.turn].faction, round: g.round, ms: now - g.turnStartedAt }],
+        turnStartedAt: now,
+      }
     }
     case 'toggleRotate':
       return { ...g, rotate: !g.rotate }
     case 'dismissWinner':
       return { ...g, winnerSeen: true }
+    case 'finish':
+      return { ...g, screen: 'stats', endedAt: Date.now() }
+    case 'resume': {
+      // Time spent looking at the stats doesn't count towards the game or the turn.
+      const paused = Date.now() - g.endedAt
+      return { ...g, screen: 'score', endedAt: 0, startedAt: g.startedAt + paused, turnStartedAt: g.turnStartedAt + paused }
+    }
     case 'end':
       return { ...initial(), boxes: g.boxes, playerCount: g.playerCount, selected: g.selected, map: g.map, clearings: g.clearings, deck: g.deck }
   }
