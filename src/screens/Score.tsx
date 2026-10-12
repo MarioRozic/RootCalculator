@@ -45,6 +45,7 @@ export function Score({ game, dispatch }: { game: Game; dispatch: Dispatch<Actio
   useWakeLock()
   const [pad, setPad] = useState<FactionId | null>(null)
   const [showLog, setShowLog] = useState(false)
+  const [showStandings, setShowStandings] = useState(false)
   const [confirmEnd, setConfirmEnd] = useState(false)
   const players = game.players
   const winner = players.find((p) => p.vp >= WIN_VP)
@@ -68,7 +69,7 @@ export function Score({ game, dispatch }: { game: Game; dispatch: Dispatch<Actio
       <LeadLine players={players} />
 
       <div className="sidewrap">
-        <Ruler players={players} />
+        <Ruler players={players} onOpen={() => setShowStandings(true)} />
         <div className={`grid g${players.length}`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
           {players.map((p, i) => (
             <Tile
@@ -104,6 +105,8 @@ export function Score({ game, dispatch }: { game: Game; dispatch: Dispatch<Actio
       </footer>
 
       {pad && <Pad game={game} faction={pad} dispatch={dispatch} onClose={() => setPad(null)} />}
+
+      {showStandings && <Standings game={game} onClose={() => setShowStandings(false)} />}
 
       {showLog && (
         <Sheet title="Score log" onClose={() => setShowLog(false)}>
@@ -173,18 +176,78 @@ function LeadLine({ players }: { players: Player[] }) {
   )
 }
 
-function Ruler({ players }: { players: Player[] }) {
-  // Highest first; a token steps sideways when another token in that column is within 3 points.
-  const columns = [40, 72, 104]
+/** Highest first; a token steps sideways when another token in that column is within 3 points. */
+function placeTokens(players: Player[], columns: number) {
   const placed: { col: number; vp: number }[] = []
-  const tokens = [...players]
+  return [...players]
     .sort((a, b) => b.vp - a.vp)
     .map((p) => {
-      let col = columns.findIndex((_, c) => !placed.some((q) => q.col === c && Math.abs(q.vp - p.vp) < 3))
+      let col = Array.from({ length: columns }, (_, c) => c).findIndex(
+        (c) => !placed.some((q) => q.col === c && Math.abs(q.vp - p.vp) < 3),
+      )
       if (col === -1) col = 0
       placed.push({ col, vp: p.vp })
       return { p, col }
     })
+}
+
+function Standings({ game, onClose }: { game: Game; onClose: () => void }) {
+  const columns = ['44px', '54%']
+  const marks = []
+  for (let v = 0; v < WIN_VP; v++) {
+    marks.push(<span key={'m' + v} className={'mk' + (v % 5 === 0 ? ' five' : '')} style={{ bottom: y(v) }} />)
+    if (v % 5 === 0)
+      marks.push(
+        <span key={'l' + v} className="lb" style={{ bottom: y(v) }}>
+          {v}
+        </span>,
+      )
+  }
+  return (
+    <div className="standings" role="dialog" aria-label="Standings" onClick={onClose}>
+      <header className="bar">
+        <span>Standings</span>
+        <small>
+          Round {game.round} <GameClock since={game.startedAt} />
+        </small>
+        <button className="x" aria-label="Close standings" onClick={onClose}>
+          ✕
+        </button>
+      </header>
+      <LeadLine players={game.players} />
+      <div className="bigr">
+        {marks}
+        <span className="flag" style={{ bottom: y(WIN_VP) }}>
+          ⚑ {WIN_VP} wins
+        </span>
+        {placeTokens(game.players, columns.length).map(({ p, col }) => {
+          const f = FACTION_BY_ID[p.faction]
+          const suit = SUITS.find((x) => x.id === p.dominance)
+          return (
+            <span
+              key={p.faction}
+              className="pin"
+              style={{ bottom: y(Math.min(p.vp, WIN_VP - 1)), left: columns[col], zIndex: p.vp >= WIN_VP ? 30 : 10 + col }}
+            >
+              <span className="tok" style={{ background: f.color, color: f.fg }}>
+                <FactionIcon id={f.id} />
+              </span>
+              <span className="lab">
+                <b>{suit ? suit.emoji : p.vp}</b>
+                <small>{displayName(p, f.short)}</small>
+              </span>
+            </span>
+          )
+        })}
+      </div>
+      <p className="hint">Tap anywhere to go back</p>
+    </div>
+  )
+}
+
+function Ruler({ players, onOpen }: { players: Player[]; onOpen: () => void }) {
+  const columns = [40, 72, 104]
+  const tokens = placeTokens(players, columns.length)
 
   const marks = []
   for (let v = 0; v < WIN_VP; v++) {
@@ -198,7 +261,7 @@ function Ruler({ players }: { players: Player[] }) {
   }
 
   return (
-    <div className="ruler" aria-label={`Score ruler from 0 to ${WIN_VP}`}>
+    <button className="ruler" aria-label="Score ruler, tap to see standings full screen" onClick={onOpen}>
       {marks}
       <span className="flag" style={{ bottom: y(WIN_VP) }}>
         ⚑ {WIN_VP}
@@ -217,7 +280,7 @@ function Ruler({ players }: { players: Player[] }) {
           </span>
         )
       })}
-    </div>
+    </button>
   )
 }
 
