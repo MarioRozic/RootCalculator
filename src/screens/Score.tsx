@@ -376,7 +376,7 @@ function Pad({ game, faction, dispatch, onClose }: { game: Game; faction: Factio
       </div>
       <div className="sub flat">Dominance card</div>
       <div className="pad four">
-        {SUITS.map((s) => (
+        {SUITS.filter((s) => s.id !== 'frog' || game.players.some((x) => x.faction === 'lilypad')).map((s) => (
           <button
             key={s.id}
             className={p.dominance === s.id ? 'on' : ''}

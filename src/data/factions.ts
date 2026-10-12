@@ -58,12 +58,14 @@ export const MIN_REACH: Record<number, number> = { 2: 17, 3: 18, 4: 21, 5: 25, 6
 
 export const WIN_VP = 30
 
-export type Suit = 'fox' | 'mouse' | 'rabbit' | 'bird'
+export type Suit = 'fox' | 'mouse' | 'rabbit' | 'bird' | 'frog'
 export const SUITS: { id: Suit; name: string; emoji: string }[] = [
   { id: 'fox', name: 'Fox', emoji: '🦊' },
   { id: 'mouse', name: 'Mouse', emoji: '🐭' },
   { id: 'rabbit', name: 'Rabbit', emoji: '🐰' },
   { id: 'bird', name: 'Bird', emoji: '🐦' },
+  // Frog cards come with the Lilypad Diaspora.
+  { id: 'frog', name: 'Frog', emoji: '🐸' },
 ]
 
 export function setupLetter(index: number) {
