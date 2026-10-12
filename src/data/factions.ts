@@ -76,10 +76,14 @@ export function isLegalSet(ids: FactionId[]) {
   return !ids.includes('vagabond2') || ids.includes('vagabond')
 }
 
-/** Rolls random sets until one meets the reach minimum, has a militant faction and is legal. */
-export function randomFairSet(count: number, pool: Faction[]): FactionId[] | null {
+/**
+ * Rolls random sets until one meets the reach minimum, has a militant faction and is legal.
+ * Locked factions are always kept; the rest are drawn from the pool.
+ */
+export function randomFairSet(count: number, pool: Faction[], locked: Faction[] = []): FactionId[] | null {
+  const rest = pool.filter((f) => !locked.includes(f))
   for (let attempt = 0; attempt < 5000; attempt++) {
-    const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, count)
+    const shuffled = [...locked, ...[...rest].sort(() => Math.random() - 0.5)].slice(0, count)
     const ids = shuffled.map((f) => f.id)
     if (shuffled.length < count) return null
     if (!isLegalSet(ids)) continue

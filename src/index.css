@@ -316,8 +316,6 @@ input:focus-visible {
   border: 2px solid transparent;
   outline: 1px solid var(--line);
   text-align: left;
-  -webkit-touch-callout: none;
-  user-select: none;
 }
 
 .frow.sel {

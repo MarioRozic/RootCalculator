@@ -1,6 +1,6 @@
-import { useRef, useState, type Dispatch } from 'react'
+import { useState, type Dispatch } from 'react'
 import { FactionIcon } from '../components/FactionIcon'
-import { BOXES, FACTIONS, FACTION_BY_ID, MIN_REACH, randomFairSet, type FactionId } from '../data/factions'
+import { BOXES, FACTIONS, FACTION_BY_ID, MIN_REACH, randomFairSet } from '../data/factions'
 import type { Action, Game } from '../game'
 
 export function PickFactions({ game, dispatch }: { game: Game; dispatch: Dispatch<Action> }) {
@@ -8,8 +8,8 @@ export function PickFactions({ game, dispatch }: { game: Game; dispatch: Dispatc
   const [error, setError] = useState('')
   const pool = FACTIONS.filter((f) => game.boxes[f.box])
   const excluded = game.excluded ?? []
-  const press = useRef<{ timer?: number; fired: boolean }>({ fired: false })
   const chosen = game.selected.map((id) => FACTION_BY_ID[id])
+  const locked = chosen.filter((f) => (game.locked ?? []).includes(f.id))
   const reach = chosen.reduce((s, f) => s + f.reach, 0)
   const need = MIN_REACH[game.playerCount]
   const full = chosen.length === game.playerCount
@@ -17,29 +17,13 @@ export function PickFactions({ game, dispatch }: { game: Game; dispatch: Dispatc
   const hasMilitant = chosen.some((f) => f.militant)
 
   function randomize() {
-    const ids = randomFairSet(game.playerCount, pool.filter((f) => !excluded.includes(f.id)))
+    const ids = randomFairSet(game.playerCount, pool.filter((f) => !excluded.includes(f.id)), locked)
     if (ids) {
       setError('')
       dispatch({ type: 'setSelected', ids })
     } else {
-      setError('No fair set is possible with these expansions and exclusions.')
+      setError('No fair set is possible with these picks, exclusions and expansions.')
     }
-  }
-
-  // Long-press (or right-click) a faction to exclude it from play, or to bring it back.
-  function exclude(id: FactionId) {
-    clearTimeout(press.current.timer)
-    if (press.current.fired) return
-    press.current.fired = true
-    dispatch({ type: 'toggleExclude', id })
-  }
-  function pressStart(e: React.PointerEvent, id: FactionId) {
-    press.current.fired = false
-    if (e.button !== 0) return
-    press.current.timer = window.setTimeout(() => exclude(id), 500)
-  }
-  function pressEnd() {
-    clearTimeout(press.current.timer)
   }
 
   return (
@@ -97,25 +81,12 @@ export function PickFactions({ game, dispatch }: { game: Game; dispatch: Dispatc
         {pool.map((f) => {
           const sel = game.selected.includes(f.id)
           const out = excluded.includes(f.id)
-          const blocked = !sel && (out || full || (f.id === 'vagabond2' && !game.selected.includes('vagabond')))
           return (
             <button
               key={f.id}
-              className={'frow' + (sel ? ' sel' : '') + (blocked ? ' dim' : '')}
+              className={'frow' + (sel ? ' sel' : '') + (out ? ' dim' : '')}
               aria-pressed={sel}
-              aria-disabled={blocked}
-              onClick={() => {
-                if (press.current.fired || blocked) return
-                dispatch({ type: 'toggleFaction', id: f.id })
-              }}
-              onPointerDown={(e) => pressStart(e, f.id)}
-              onPointerUp={pressEnd}
-              onPointerLeave={pressEnd}
-              onPointerCancel={pressEnd}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                exclude(f.id)
-              }}
+              onClick={() => dispatch({ type: 'toggleFaction', id: f.id })}
             >
               <span className="dot" style={{ background: f.color, color: f.fg }}>
                 <FactionIcon id={f.id} />
@@ -123,8 +94,9 @@ export function PickFactions({ game, dispatch }: { game: Game; dispatch: Dispatc
               <span className="n">
                 {f.name}
                 <small>
-                  {out ? 'Excluded · long-press to bring back' : (
+                  {out ? 'Excluded · tap to bring back' : (
                     <>
+                      {locked.includes(f) && 'Locked in · '}
                       {f.militant ? 'Militant' : 'Insurgent'} · {BOXES.find((b) => b.id === f.box)!.name}
                       {f.id === 'vagabond2' && ' · needs Vagabond'}
                     </>
@@ -135,7 +107,7 @@ export function PickFactions({ game, dispatch }: { game: Game; dispatch: Dispatc
             </button>
           )
         })}
-        <p className="fhint">Long-press a faction to exclude it from play and random draws.</p>
+        <p className="fhint">Tap a faction once to lock it in, again to exclude it. Randomize fills the rest.</p>
       </div>
 
       {error && <p className="error">{error}</p>}

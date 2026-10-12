@@ -31,6 +31,8 @@ export interface Game {
   selected: FactionId[]
   /** Factions the group doesn't want in play; kept out of picks and random draws. */
   excluded: FactionId[]
+  /** Factions players tapped in; randomize keeps these and rerolls the rest of the selection. */
+  locked: FactionId[]
   /** In turn order, clockwise from the first player. */
   players: Player[]
   round: number
@@ -58,7 +60,6 @@ export type Action =
   | { type: 'toggleBox'; box: Box }
   | { type: 'setCount'; count: number }
   | { type: 'toggleFaction'; id: FactionId }
-  | { type: 'toggleExclude'; id: FactionId }
   | { type: 'setSelected'; ids: FactionId[] }
   | { type: 'toSetup' }
   | { type: 'toTurnOrder' }
@@ -91,6 +92,7 @@ function initial(): Game {
     playerCount: 4,
     selected: [],
     excluded: [],
+    locked: [],
     players: [],
     round: 1,
     turn: 0,
@@ -151,18 +153,20 @@ function reducer(g: Game, a: Action): Game {
     case 'setCount':
       return { ...g, playerCount: a.count, selected: g.selected.slice(0, a.count) }
     case 'toggleFaction': {
-      if (g.selected.includes(a.id)) {
-        // Dropping the first Vagabond also drops the second one.
-        const drop = a.id === 'vagabond' ? ['vagabond', 'vagabond2'] : [a.id]
-        return { ...g, selected: g.selected.filter((s) => !drop.includes(s)) }
-      }
-      if (g.selected.length >= g.playerCount) return g
-      return { ...g, selected: [...g.selected, a.id] }
-    }
-    case 'toggleExclude': {
+      // Each tap cycles a faction: neutral → locked in → excluded → neutral. A random pick locks in on tap.
       if (g.excluded.includes(a.id)) return { ...g, excluded: g.excluded.filter((x) => x !== a.id) }
+      const locked = g.locked.filter((id) => g.selected.includes(id))
+      if (g.selected.includes(a.id) && !locked.includes(a.id)) return { ...g, locked: [...locked, a.id] }
+      const blocked = g.selected.length >= g.playerCount || (a.id === 'vagabond2' && !g.selected.includes('vagabond'))
+      if (!g.selected.includes(a.id) && !blocked) return { ...g, selected: [...g.selected, a.id], locked: [...locked, a.id] }
+      // Dropping the first Vagabond also drops the second one.
       const drop = a.id === 'vagabond' ? ['vagabond', 'vagabond2'] : [a.id]
-      return { ...g, excluded: [...g.excluded, a.id], selected: g.selected.filter((s) => !drop.includes(s)) }
+      return {
+        ...g,
+        excluded: [...g.excluded, a.id],
+        selected: g.selected.filter((s) => !drop.includes(s)),
+        locked: locked.filter((s) => !drop.includes(s)),
+      }
     }
     case 'setSelected':
       return { ...g, selected: a.ids }
@@ -267,7 +271,7 @@ function reducer(g: Game, a: Action): Game {
       return { ...g, screen: 'score', endedAt: 0, startedAt: g.startedAt + paused, turnStartedAt: g.turnStartedAt + paused }
     }
     case 'end':
-      return { ...initial(), boxes: g.boxes, playerCount: g.playerCount, selected: g.selected, map: g.map, clearings: g.clearings, deck: g.deck }
+      return { ...initial(), boxes: g.boxes, playerCount: g.playerCount, excluded: g.excluded, map: g.map, clearings: g.clearings, deck: g.deck }
   }
 }
 
