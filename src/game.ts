@@ -23,8 +23,12 @@ export interface Game {
   /** In turn order, clockwise from the first player. */
   players: Player[]
   round: number
+  /** Index into players of whose turn it is. */
+  turn: number
+  /** Epoch ms when the game started. */
+  startedAt: number
   log: LogEntry[]
-  undo: { players: Player[]; log: LogEntry[] }[]
+  undo: { players: Player[]; log: LogEntry[]; round: number; turn: number }[]
   rotate: boolean
   winnerSeen: boolean
 }
@@ -43,7 +47,7 @@ export type Action =
   | { type: 'dominance'; faction: FactionId; suit: Suit | null }
   | { type: 'coalition'; faction: FactionId; with: FactionId | null }
   | { type: 'undo' }
-  | { type: 'nextRound' }
+  | { type: 'endTurn' }
   | { type: 'toggleRotate' }
   | { type: 'dismissWinner' }
   | { type: 'end' }
@@ -58,6 +62,8 @@ function initial(): Game {
     selected: [],
     players: [],
     round: 1,
+    turn: 0,
+    startedAt: 0,
     log: [],
     undo: [],
     rotate: false,
@@ -68,7 +74,10 @@ function initial(): Game {
 function load(): Game {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return { ...initial(), ...JSON.parse(raw) }
+    if (raw) {
+      const g: Game = { ...initial(), ...JSON.parse(raw) }
+      return g.screen === 'score' && !g.startedAt ? { ...g, startedAt: Date.now() } : g
+    }
   } catch {
     // ignore unreadable storage
   }
@@ -76,7 +85,7 @@ function load(): Game {
 }
 
 function withUndo(g: Game): Game['undo'] {
-  return [...g.undo, { players: g.players, log: g.log }].slice(-100)
+  return [...g.undo, { players: g.players, log: g.log, round: g.round, turn: g.turn }].slice(-100)
 }
 
 function updatePlayer(g: Game, id: FactionId, fn: (p: Player) => Player) {
@@ -120,6 +129,8 @@ function reducer(g: Game, a: Action): Game {
         ...g,
         screen: 'score',
         round: 1,
+        turn: 0,
+        startedAt: Date.now(),
         log: [],
         undo: [],
         winnerSeen: false,
@@ -157,10 +168,13 @@ function reducer(g: Game, a: Action): Game {
     case 'undo': {
       const last = g.undo[g.undo.length - 1]
       if (!last) return g
-      return { ...g, players: last.players, log: last.log, undo: g.undo.slice(0, -1), winnerSeen: false }
+      return { ...g, ...last, undo: g.undo.slice(0, -1), winnerSeen: false }
     }
-    case 'nextRound':
-      return { ...g, round: g.round + 1 }
+    case 'endTurn': {
+      // Passing the turn back to the first player starts a new round.
+      const turn = (g.turn + 1) % g.players.length
+      return { ...g, undo: withUndo(g), turn, round: turn === 0 ? g.round + 1 : g.round }
+    }
     case 'toggleRotate':
       return { ...g, rotate: !g.rotate }
     case 'dismissWinner':

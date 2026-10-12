@@ -22,6 +22,8 @@ export interface Faction {
   box: Box
   reach: number
   militant: boolean
+  /** Can lose VP during play (Eyrie turmoil), so its tile gets a minus button. */
+  losesVp?: boolean
   color: string
   fg: string
   /** Position in the setup order (A, B, C...). */
@@ -37,7 +39,7 @@ export const FACTIONS: Faction[] = [
   { id: 'lord', name: 'Lord of the Hundreds', short: 'Hundreds', box: 'marauder', reach: 9, militant: true, color: '#c2352c', fg: '#fff', setup: 10, setupNote: 'Follow the setup on the back of the faction board' },
   { id: 'keepers', name: 'Keepers in Iron', short: 'Keepers', box: 'marauder', reach: 8, militant: false, color: '#4f6b3a', fg: '#fff', setup: 11, setupNote: 'Follow the setup on the back of the faction board' },
   { id: 'duchy', name: 'Underground Duchy', short: 'Duchy', box: 'underworld', reach: 8, militant: true, color: '#d2a06a', fg: '#2a1607', setup: 8, setupNote: 'Follow the setup on the back of the faction board' },
-  { id: 'eyrie', name: 'Eyrie Dynasties', short: 'Eyrie', box: 'base', reach: 7, militant: true, color: '#2f6fb4', fg: '#fff', setup: 2, setupNote: 'Roost and six warriors in the corner opposite the keep, choose a leader' },
+  { id: 'eyrie', name: 'Eyrie Dynasties', short: 'Eyrie', box: 'base', reach: 7, militant: true, losesVp: true, color: '#2f6fb4', fg: '#fff', setup: 2, setupNote: 'Roost and six warriors in the corner opposite the keep, choose a leader' },
   { id: 'lilypad', name: 'Lilypad Diaspora', short: 'Lilypad', box: 'homeland', reach: 7, militant: false, color: '#e0889b', fg: '#3a1018', setup: 12, setupNote: 'Follow the setup on the back of the faction board' },
   { id: 'vagabond', name: 'Vagabond', short: 'Vagabond', box: 'base', reach: 5, militant: false, color: '#7d7a72', fg: '#fff', setup: 4, setupNote: 'Choose a character, start in any forest, take starting items' },
   { id: 'river', name: 'Riverfolk Company', short: 'Otters', box: 'riverfolk', reach: 5, militant: false, color: '#3bb0c4', fg: '#0b2a30', setup: 6, setupNote: 'Follow the setup on the back of the faction board' },

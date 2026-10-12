@@ -821,3 +821,50 @@ input:focus-visible {
     animation: none;
   }
 }
+
+/* ---------- turns ---------- */
+.round small {
+  margin-left: 6px;
+  font-family: var(--body);
+  font-variant-numeric: tabular-nums;
+}
+
+.tile.current {
+  border: 4px solid var(--ink);
+  box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--ink);
+}
+
+.tile .turn {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-bottom: 4px;
+}
+
+.endturn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 10px 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.endturn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.endturn small {
+  font-weight: 700;
+  opacity: 0.8;
+}

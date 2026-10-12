@@ -10,6 +10,20 @@ function y(v: number) {
   return `calc(18px + ${v / WIN_VP} * (100% - 36px))`
 }
 
+function formatDuration(ms: number) {
+  const mins = Math.max(0, Math.floor(ms / 60000))
+  return `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, '0')}`
+}
+
+function GameClock({ since }: { since: number }) {
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 10000)
+    return () => window.clearInterval(id)
+  }, [])
+  return <small title="Game time">⏱ {formatDuration(now - since)}</small>
+}
+
 function useWakeLock() {
   useEffect(() => {
     let lock: WakeLockSentinel | null = null
@@ -36,13 +50,16 @@ export function Score({ game, dispatch }: { game: Game; dispatch: Dispatch<Actio
   const winner = players.find((p) => p.vp >= WIN_VP)
   const cols = players.length <= 2 ? 1 : 2
   const rows = Math.ceil(players.length / cols)
+  const current = FACTION_BY_ID[players[game.turn]?.faction ?? players[0].faction]
+  const next = players[(game.turn + 1) % players.length]
+  const nextName = displayName(next, FACTION_BY_ID[next.faction].short)
 
   return (
     <div className="screen score">
       <header className="bar">
-        <button className="round" onClick={() => dispatch({ type: 'nextRound' })} aria-label={`Round ${game.round}, tap for next round`}>
-          Round {game.round} <small>＋</small>
-        </button>
+        <span className="round">
+          Round {game.round} <GameClock since={game.startedAt} />
+        </span>
         <button className="chip" disabled={!game.undo.length} onClick={() => dispatch({ type: 'undo' })}>
           ↶ Undo
         </button>
@@ -57,6 +74,7 @@ export function Score({ game, dispatch }: { game: Game; dispatch: Dispatch<Actio
             <Tile
               key={p.faction}
               player={p}
+              current={i === game.turn}
               partner={players.find((x) => x.coalitionWith === p.faction || p.coalitionWith === x.faction)}
               rotated={game.rotate && Math.floor(i / cols) < Math.floor(rows / 2)}
               onAdd={() => dispatch({ type: 'score', faction: p.faction, delta: 1 })}
@@ -67,12 +85,22 @@ export function Score({ game, dispatch }: { game: Game; dispatch: Dispatch<Actio
         </div>
       </div>
 
+      <button
+        className="endturn"
+        style={{ background: current.color, color: current.fg }}
+        onClick={() => dispatch({ type: 'endTurn' })}
+      >
+        <FactionIcon id={current.id} />
+        End {displayName(players[game.turn], current.short)} turn
+        <small>{game.turn === players.length - 1 ? `→ round ${game.round + 1}` : `→ ${nextName}`}</small>
+      </button>
+
       <footer className="foot">
         <button onClick={() => setShowLog(true)}>☰ Log</button>
         <button onClick={() => dispatch({ type: 'toggleRotate' })} aria-pressed={game.rotate}>
           ⟳ Rotate{game.rotate ? ' on' : ''}
         </button>
-        <button onClick={() => setConfirmEnd(true)}>⚑ End</button>
+        <button onClick={() => setConfirmEnd(true)}>⚑ End game</button>
       </footer>
 
       {pad && <Pad game={game} faction={pad} dispatch={dispatch} onClose={() => setPad(null)} />}
@@ -111,7 +139,7 @@ export function Score({ game, dispatch }: { game: Game; dispatch: Dispatch<Actio
         </Sheet>
       )}
 
-      {winner && !game.winnerSeen && <Winner winner={winner} players={players} dispatch={dispatch} />}
+      {winner && !game.winnerSeen && <Winner winner={winner} players={players} round={game.round} startedAt={game.startedAt} dispatch={dispatch} />}
     </div>
   )
 }
@@ -196,6 +224,7 @@ function Ruler({ players }: { players: Player[] }) {
 function Tile(props: {
   player: Player
   partner?: Player
+  current: boolean
   rotated: boolean
   onAdd: () => void
   onRemove: () => void
@@ -217,7 +246,7 @@ function Tile(props: {
   const cancel = () => window.clearTimeout(timer.current)
 
   return (
-    <div className={'tile' + (rotated ? ' rot' : '')} style={{ background: f.color, color: f.fg }}>
+    <div className={'tile' + (rotated ? ' rot' : '') + (props.current ? ' current' : '')} style={{ background: f.color, color: f.fg }}>
       <span className="fill" style={{ height: `${(p.vp / WIN_VP) * 100}%` }} />
       <button
         className="hit"
@@ -234,6 +263,7 @@ function Tile(props: {
       >
         <span className="in">
           <FactionIcon id={f.id} className="ic" />
+          {props.current && <span className="turn">▶ Turn</span>}
           <span className="fn">{displayName(p, f.short)}</span>
           {suit ? (
             <span className="vp dom" title={`${suit.name} dominance`}>
@@ -245,9 +275,11 @@ function Tile(props: {
           {partner && <span className="coal">🤝 {FACTION_BY_ID[partner.faction].short}</span>}
         </span>
       </button>
-      <button className="minus" aria-label={`Remove one point from ${f.name}`} onClick={props.onRemove}>
-        −
-      </button>
+      {f.losesVp && (
+        <button className="minus" aria-label={`Remove one point from ${f.name}`} onClick={props.onRemove}>
+          −
+        </button>
+      )}
     </div>
   )
 }
@@ -338,9 +370,10 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
   )
 }
 
-function Winner({ winner, players, dispatch }: { winner: Player; players: Player[]; dispatch: Dispatch<Action> }) {
+function Winner({ winner, players, round, startedAt, dispatch }: { winner: Player; players: Player[]; round: number; startedAt: number; dispatch: Dispatch<Action> }) {
   const f = FACTION_BY_ID[winner.faction]
   const partner = players.find((x) => x.coalitionWith === winner.faction)
+  const [endedAt] = useState(Date.now)
   return (
     <div className="scrim center">
       <div className="win" style={{ borderColor: f.color }}>
@@ -351,7 +384,9 @@ function Winner({ winner, players, dispatch }: { winner: Player; players: Player
           {displayName(winner, f.name)}
           {partner ? ` and ${displayName(partner, FACTION_BY_ID[partner.faction].name)} win!` : ' wins!'}
         </b>
-        <small>Reached {WIN_VP} victory points</small>
+        <small>
+          Reached {WIN_VP} victory points in round {round} · {formatDuration(endedAt - startedAt)}
+        </small>
         <div className="actions inline">
           <button className="btn ghost" onClick={() => dispatch({ type: 'undo' })}>
             Oops, undo
