@@ -1,4 +1,4 @@
-import { ISSUES_URL, SUPPORT_URL } from '../config'
+import { FEEDBACK_FORM_URL, ISSUES_URL, SUPPORT_URL } from '../config'
 
 export function SupportLink() {
   return (
@@ -12,9 +12,23 @@ export function SupportLink() {
       </p>
       <p className="support support-issue">
         Found a bug or have an idea?{' '}
-        <a href={ISSUES_URL} target="_blank" rel="noopener noreferrer">
+        <a
+          href={FEEDBACK_FORM_URL || ISSUES_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           Report an issue
         </a>
+        {FEEDBACK_FORM_URL && (
+          <>
+            {' '}
+            (or{' '}
+            <a href={ISSUES_URL} target="_blank" rel="noopener noreferrer">
+              on GitHub
+            </a>
+            )
+          </>
+        )}
       </p>
     </>
   )
