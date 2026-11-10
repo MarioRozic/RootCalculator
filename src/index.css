@@ -1236,3 +1236,15 @@ input:focus-visible {
 .win .actions {
   align-self: stretch;
 }
+
+.support {
+  text-align: center;
+  margin: 18px 16px 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.support a {
+  color: inherit;
+  font-weight: 700;
+}
