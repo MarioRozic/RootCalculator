@@ -1,6 +1,5 @@
 import type { Dispatch } from 'react'
 import { FactionIcon } from '../components/FactionIcon'
-import { SupportLink } from '../components/SupportLink'
 import { FACTION_BY_ID, setupLetter } from '../data/factions'
 import type { Action, Game } from '../game'
 
@@ -64,7 +63,6 @@ export function Setup({ game, dispatch }: { game: Game; dispatch: Dispatch<Actio
             )
           })}
         </div>
-        <SupportLink />
       </div>
 
       <div className="actions">
