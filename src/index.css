@@ -1248,3 +1248,7 @@ input:focus-visible {
   color: inherit;
   font-weight: 700;
 }
+
+.support-issue {
+  margin-top: -6px;
+}
